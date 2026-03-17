@@ -1,16 +1,38 @@
-// Update this page (the content is just a fallback if you fail to update the page)
+import HeaderBar from "@/components/dashboard/HeaderBar";
+import LiveFeed from "@/components/dashboard/LiveFeed";
+import LidarDisplay from "@/components/dashboard/LidarDisplay";
+import IMUDisplay from "@/components/dashboard/IMUDisplay";
+import VehicleStatus from "@/components/dashboard/VehicleStatus";
+import EncoderDisplay from "@/components/dashboard/EncoderDisplay";
 
-// IMPORTANT: Fully REPLACE this with your own code
-const PlaceholderIndex = () => {
-  // PLACEHOLDER: Replace this entire return statement with the user's app.
-  // The inline background color is intentionally not part of the design system.
+const Index = () => {
   return (
-    <div className="flex min-h-screen items-center justify-center" style={{ backgroundColor: '#fcfbf8' }}>
-      <img data-lovable-blank-page-placeholder="REMOVE_THIS" src="/placeholder.svg" alt="Your app will live here!" />
+    <div className="min-h-screen flex flex-col hud-grid-bg">
+      <HeaderBar />
+      <main className="flex-1 p-4 md:p-6">
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 max-w-[1400px] mx-auto">
+          {/* Left column: Camera feed */}
+          <div className="lg:col-span-2">
+            <LiveFeed />
+          </div>
+
+          {/* Right column: Vehicle + LIDAR */}
+          <div className="flex flex-col gap-4">
+            <VehicleStatus />
+            <LidarDisplay />
+          </div>
+
+          {/* Bottom row */}
+          <div className="lg:col-span-2">
+            <IMUDisplay />
+          </div>
+          <div>
+            <EncoderDisplay />
+          </div>
+        </div>
+      </main>
     </div>
   );
 };
-
-const Index = PlaceholderIndex;
 
 export default Index;

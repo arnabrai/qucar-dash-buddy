@@ -13,6 +13,10 @@ export default {
       },
     },
     extend: {
+      fontFamily: {
+        mono: ['"JetBrains Mono"', 'monospace'],
+        sans: ['Inter', 'sans-serif'],
+      },
       colors: {
         border: "hsl(var(--border))",
         input: "hsl(var(--input))",
@@ -46,6 +50,12 @@ export default {
         card: {
           DEFAULT: "hsl(var(--card))",
           foreground: "hsl(var(--card-foreground))",
+        },
+        hud: {
+          glow: "hsl(var(--hud-glow))",
+          warn: "hsl(var(--hud-warn))",
+          danger: "hsl(var(--hud-danger))",
+          success: "hsl(var(--hud-success))",
         },
         sidebar: {
           DEFAULT: "hsl(var(--sidebar-background))",

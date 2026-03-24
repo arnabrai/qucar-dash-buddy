@@ -15,19 +15,19 @@ Dependencies:
 """
 
 import sys
+import time
 import numpy as np
 import pyqtgraph as pg
 from PyQt5.QtWidgets import (QApplication, QMainWindow, QVBoxLayout, QWidget, 
                              QHBoxLayout, QLabel, QCheckBox, QDoubleSpinBox, QSlider)
 from PyQt5.QtCore import QTimer, Qt
 
-# NOTE: Try to import QCar2 libraries (mock if unavailable)
+# Auto-detect QCar2 hardware libraries
 try:
-    # Replace with the actual hardware library imports for QCar2
-    # from pal.products.qcar2 import QCar2
+    from pal.utilities.lidar import Lidar
     HAS_HARDWARE = True
 except ImportError:
-    print("Warning: QCar2 hardware libraries not found. Running in simulation/mock mode.")
+    print("Warning: Quanser 'pal' library not found. Running in simulation/mock mode.")
     HAS_HARDWARE = False
 
 
@@ -129,12 +129,16 @@ class RadarPlot(QMainWindow):
     def init_hardware(self):
         """
         Initialize the QCar2 LiDAR hardware here using Quanser APIs.
-        Reference: Quanser_Academic_Resources GitHub (e.g., QCar/python/...)
         """
-        # Example setup for Quanser QCar:
-        # from pal.utilities.lidar import Lidar
-        # self.myLidar = Lidar(type='RPLidar') # Adjust based on QCar2 specifics
-        pass
+        if HAS_HARDWARE:
+            try:
+                # Initialize Quanser RPLidar
+                self.myLidar = Lidar(type='RPLidar')
+                print("Successfully initialized QCar LiDAR.")
+            except Exception as e:
+                print(f"Failed to initialize LiDAR: {e}")
+                global HAS_HARDWARE
+                HAS_HARDWARE = False
         
     def draw_radar_background(self):
         """ Draws the concentric distance circles and crosshair axes """
@@ -163,24 +167,24 @@ class RadarPlot(QMainWindow):
     def get_lidar_data(self):
         """
         Retrieves angles (radians) and distances (meters) from the LiDAR.
-        Replace the mock block below with actual Quanser API calls.
         """
         if HAS_HARDWARE:
-            # Example Quanser read (based on Quanser_Academic_Resources):
-            # self.myLidar.read()
-            # return self.myLidar.angles, self.myLidar.distances
-            pass
+            try:
+                self.myLidar.read()
+                # Quanser lidar might return empty arrays if no new scan is ready
+                if len(self.myLidar.distances) > 0:
+                    return np.array(self.myLidar.angles), np.array(self.myLidar.distances)
+            except Exception as e:
+                print(f"LiDAR read error: {e}")
+                pass
             
-        # --- MOCK DATA GENERATION FOR TESTING ---
-        # Simulating a typical 360-degree LiDAR sweep (approx 500-1000 points)
+        # --- MOCK DATA GENERATION FOR TESTING (Fallback) ---
         num_points = 720
         angles = np.linspace(0, 2*np.pi, num_points)
         
-        # Base environment boundary
         distances = 6.0 + 1.5 * np.sin(angles * 4) + np.random.normal(0, 0.05, num_points)
         
-        # Dynamic rotating mock obstacle
-        t = (pg.ptime.time() % 10) / 10.0
+        t = (time.time() % 10) / 10.0
         obs_angle = t * 2 * np.pi
         angle_diff = (angles - obs_angle + np.pi) % (2*np.pi) - np.pi
         obstacle_mask = np.abs(angle_diff) < 0.15

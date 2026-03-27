@@ -62,7 +62,7 @@ class Config:
     OBSTACLE_THRESHOLD      = 0.8    # Distance to trigger reactive mode
     CLEAR_THRESHOLD         = 1.2    # Distance to consider path "Wide Open"
     EMERGENCY_STOP_DIST     = 0.28   # Hard stop
-    LIDAR_ANGLE_OFFSET      = 0.0    # Rotation in DEGREES (Adjust if front is not 0)
+    LIDAR_ANGLE_OFFSET      = 180.0  # Rotation in DEGREES (Adjust if front is not 0)
 
     # --- Control Gains ---
     K_P_STEER               = 1.2    # Proportional gain for gap chasing

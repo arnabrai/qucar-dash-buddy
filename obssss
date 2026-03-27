@@ -58,7 +58,7 @@ class Config:
     # --- LiDAR Parameters ---
     NUM_BINS                = 72     # 5° per bin
     MAX_RANGE               = 4.5    # Max reliable distance
-    MIN_RANGE               = 0.1    # Filtering noise
+    MIN_RANGE               = 0.15   # Filtering noise / chassis reflections
     OBSTACLE_THRESHOLD      = 0.8    # Distance to trigger reactive mode
     CLEAR_THRESHOLD         = 1.2    # Distance to consider path "Wide Open"
     EMERGENCY_STOP_DIST     = 0.28   # Hard stop
@@ -166,9 +166,11 @@ class VectorFieldHistogram:
                 best_score = score
                 best_angle = math.radians(angle)
 
-        # Minimum Front distance for emergency stop
-        front_mask = (np.abs(np.degrees(np.vectorize(lambda x: (x + math.pi) % (2*math.pi) - math.pi)(angles))) < 45)
-        min_front = np.min(distances[front_mask]) if any(front_mask) else 5.0
+        # Minimum Front distance for emergency stop (using filtered data)
+        # Center angles around 0 for front mask
+        v_ang_centered = (v_ang + math.pi) % (2 * math.pi) - math.pi
+        front_mask = (np.abs(np.degrees(v_ang_centered)) < 40) # Slightly tighter front arc
+        min_front = np.min(v_dist[front_mask]) if np.any(front_mask) else 5.0
 
         is_blocked = (best_score <= 0)
         return best_angle, min_front, is_blocked

@@ -62,6 +62,7 @@ class Config:
     OBSTACLE_THRESHOLD      = 0.8    # Distance to trigger reactive mode
     CLEAR_THRESHOLD         = 1.2    # Distance to consider path "Wide Open"
     EMERGENCY_STOP_DIST     = 0.28   # Hard stop
+    LIDAR_ANGLE_OFFSET      = 0.0    # Rotation in DEGREES (Adjust if front is not 0)
 
     # --- Control Gains ---
     K_P_STEER               = 1.2    # Proportional gain for gap chasing
@@ -118,13 +119,14 @@ class VectorFieldHistogram:
     def __init__(self, cfg: Config):
         self.cfg = cfg
         self.bin_size = 360 / cfg.NUM_BINS
+        self.debug_closest = (5.0, 0.0)
         
     def process_lidar(self, raw_angles, raw_distances):
         if raw_distances is None or len(raw_distances) == 0:
             return 0.0, 5.0, False
 
         hist = np.ones(self.cfg.NUM_BINS) * self.cfg.MAX_RANGE
-        angles = np.array(raw_angles)
+        angles = (np.array(raw_angles) + math.radians(self.cfg.LIDAR_ANGLE_OFFSET)) % (2 * math.pi)
         distances = np.array(raw_distances)
 
         mask = (distances > self.cfg.MIN_RANGE) & (distances < self.cfg.MAX_RANGE)
@@ -172,6 +174,13 @@ class VectorFieldHistogram:
         front_mask = (np.abs(np.degrees(v_ang_centered)) < 40) # Slightly tighter front arc
         min_front = np.min(v_dist[front_mask]) if np.any(front_mask) else 5.0
 
+        # Debug: Show closest overall object location
+        if len(v_dist) > 0:
+            idx = np.argmin(v_dist)
+            self.debug_closest = (v_dist[idx], math.degrees(v_ang_centered[idx]))
+        else:
+            self.debug_closest = (5.0, 0.0)
+
         is_blocked = (best_score <= 0)
         return best_angle, min_front, is_blocked
 
@@ -185,10 +194,14 @@ class Controller:
     def __init__(self):
         self.cfg = Config(); self.tracker = KinematicTracker(self.cfg); self.vfh = VectorFieldHistogram(self.cfg)
         self.state = CarState.CRUISE; self.state_time = time.time(); self.steer = 0.0; self.msg = ""
+        self.closest_info = ""
 
     def step(self, angles, distances, current_time):
         gap_ang, min_f, blocked = self.vfh.process_lidar(angles, distances)
         throttle = 0.0; steer = 0.0; leds = self.cfg.LED_HEADLIGHTS.copy()
+        
+        c_dist, c_ang = self.vfh.debug_closest
+        self.closest_info = f"Closest:{c_dist:.2f}m @ {c_ang:.0f}°"
         
         if min_f < self.cfg.EMERGENCY_STOP_DIST: self.state = CarState.EMERGENCY
 
@@ -230,7 +243,9 @@ def main():
                 myCar.read(); myLidar.read()
                 th, st, leds = ctrl.step(myLidar.angles, myLidar.distances, time.time())
                 myCar.write(th, st, leds)
-                if time.time() - last_tele > 0.5: print(f"[{time.time()-t0:5.1f}s] {ctrl.msg}"); last_tele = time.time()
+                if time.time() - last_tele > 0.5: 
+                    print(f"[{time.time()-t0:5.1f}s] {ctrl.msg} | {ctrl.closest_info}")
+                    last_tele = time.time()
                 time.sleep(max(0, cfg.DT - (time.time() - t0 % cfg.DT)))
     except KeyboardInterrupt: pass
     finally:

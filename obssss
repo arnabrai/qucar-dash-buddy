@@ -43,7 +43,7 @@ class Config:
     # --- Physical Dimensions (Meters) ---
     CAR_WIDTH               = 0.192
     WHEELBASE               = 0.256
-    SAFETY_MARGIN           = 0.12   # Extra space on each side
+    SAFETY_MARGIN           = 0.15   # Increased for better clearance
     TOTAL_WIDTH_REQD        = CAR_WIDTH + (2 * SAFETY_MARGIN)
 
     # --- Dynamics Approximation ---
@@ -58,7 +58,7 @@ class Config:
     # --- LiDAR Parameters ---
     NUM_BINS                = 72     # 5° per bin
     MAX_RANGE               = 4.5    # Max reliable distance
-    MIN_RANGE               = 0.15   # Filtering noise / chassis reflections
+    MIN_RANGE               = 0.18   # Ignore closer reflections
     OBSTACLE_THRESHOLD      = 0.8    # Distance to trigger reactive mode
     CLEAR_THRESHOLD         = 1.2    # Distance to consider path "Wide Open"
     EMERGENCY_STOP_DIST     = 0.28   # Hard stop
@@ -130,8 +130,15 @@ class VectorFieldHistogram:
         distances = np.array(raw_distances)
 
         mask = (distances > self.cfg.MIN_RANGE) & (distances < self.cfg.MAX_RANGE)
-        v_dist = distances[mask]
-        v_ang = angles[mask]
+        
+        # Chassis Mask: Ignore points very close to the car at the back/sides
+        # QCar2 pillars/cables are typically at degrees [110-250]
+        v_ang_raw = angles[mask]
+        v_dist_raw = distances[mask]
+        
+        chassis_mask = ~((v_dist_raw < 0.4) & (np.abs(np.degrees((v_ang_raw + math.pi) % (2*math.pi) - math.pi)) > 110))
+        v_dist = v_dist_raw[chassis_mask]
+        v_ang = v_ang_raw[chassis_mask]
 
         if len(v_dist) == 0:
             return 0.0, 5.0, False
@@ -217,9 +224,14 @@ class Controller:
             if min_f > self.cfg.CLEAR_THRESHOLD: self.state = CarState.RETURN; print("✅ Clear!")
 
         elif self.state == CarState.RETURN:
-            self.msg = f"RETURNING | Y:{self.tracker.y:.2f}m"; throttle = self.cfg.THROTTLE_STABILIZE
-            steer = (-self.cfg.K_P_RETURN * self.tracker.y) - (self.cfg.K_P_YAW * self.tracker.yaw)
-            if abs(self.tracker.y) < 0.02 and abs(self.tracker.yaw) < 0.1: self.state = CarState.STABILIZE; self.state_time = time.time()
+            self.msg = f"RETURNING | Y:{self.tracker.y:.2f}m ψ:{math.degrees(self.tracker.yaw):.0f}°"
+            throttle = self.cfg.THROTTLE_STABILIZE
+            # Return logic: steer toward the lane (y=0) while aligning yaw (0)
+            # Increased K_P for stronger correction
+            steer = (-2.0 * self.tracker.y) - (1.5 * self.tracker.yaw)
+            
+            if abs(self.tracker.y) < 0.05 and abs(self.tracker.yaw) < 0.1:
+                self.state = CarState.STABILIZE; self.state_time = time.time()
 
         elif self.state == CarState.STABILIZE:
             self.msg = "SETTLING..."; throttle = self.cfg.THROTTLE_CRUISE

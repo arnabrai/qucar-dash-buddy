@@ -62,10 +62,11 @@ class Config:
     OBSTACLE_THRESHOLD      = 0.8    # Distance to trigger reactive mode
     CLEAR_THRESHOLD         = 1.2    # Distance to consider path "Wide Open"
     EMERGENCY_STOP_DIST     = 0.28   # Hard stop
-    LIDAR_ANGLE_OFFSET      = 180.0  # Rotation in DEGREES (Adjust if front is not 0)
+    LIDAR_ANGLE_OFFSET      = 180.0  # Rotation in DEGREES
+    LIDAR_REVERSE           = True   # Flip angles if left/right are swapped
 
     # --- Control Gains ---
-    K_P_STEER               = 1.2    # Proportional gain for gap chasing
+    K_P_STEER               = 1.5    # Increased gain for sharper dodging
     K_P_RETURN              = 1.5    # Gain for returning to lane (Lateral)
     K_P_YAW                 = 1.0    # Gain for returning to lane (Heading)
 
@@ -125,8 +126,13 @@ class VectorFieldHistogram:
         if raw_distances is None or len(raw_distances) == 0:
             return 0.0, 5.0, False
 
-        hist = np.ones(self.cfg.NUM_BINS) * self.cfg.MAX_RANGE
-        angles = (np.array(raw_angles) + math.radians(self.cfg.LIDAR_ANGLE_OFFSET)) % (2 * math.pi)
+        angles = np.array(raw_angles)
+        if self.cfg.LIDAR_REVERSE:
+            angles = (2 * math.pi - angles) % (2 * math.pi)
+        
+        # Apply rotation to align front
+        angles = (angles + math.radians(self.cfg.LIDAR_ANGLE_OFFSET)) % (2 * math.pi)
+        
         distances = np.array(raw_distances)
 
         mask = (distances > self.cfg.MIN_RANGE) & (distances < self.cfg.MAX_RANGE)
